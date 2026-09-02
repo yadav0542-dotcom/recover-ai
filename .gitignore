@@ -1,0 +1,19 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+
+# Tooling and OS
+.DS_Store
+coverage.xml
+htmlcov/
