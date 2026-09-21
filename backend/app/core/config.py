@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://recover_ai:recover_ai@localhost:5432/recover_ai"
     frontend_origin: str = "http://localhost:3000"
+    llm_provider: str = "mock"
+    llm_model: str = "recovery-recommendation"
+    llm_api_key: str | None = None
+    recovery_agent_mode: str = "mock"
+    razorpay_key_id: str | None = None
+    razorpay_key_secret: str | None = None
+    razorpay_webhook_secret: str | None = None
+    razorpay_mode: str = "test"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

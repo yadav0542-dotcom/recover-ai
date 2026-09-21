@@ -10,6 +10,7 @@ import {
   getDashboardRecoveries,
   getDashboardSummary,
 } from "@/lib/api";
+
 import type {
   AuditEntry,
   DashboardSummary,
@@ -17,11 +18,84 @@ import type {
   RecoveryMetrics,
 } from "@/types/api";
 
+const auditEventLabels: Record<string, string> = {
+  POLICY_OVERRIDE: "Policy override",
+  RECOVERY_EXECUTION: "Recovery executed",
+  POLICY_DECISION: "Policy decision",
+  PAYMENT_CREATED: "Payment created",
+  PAYMENT_FAILED: "Payment failed",
+  PAYMENT_SUCCESS: "Payment succeeded",
+  RECOVERY_STARTED: "Recovery started",
+  RECOVERY_COMPLETED: "Recovery completed",
+  RETRY_BLOCKED: "Retry blocked",
+  REFUND_RECONCILIATION: "Refund reconciliation",
+};
+
+function formatAuditEvent(eventType: string) {
+  return (
+    auditEventLabels[eventType] ??
+    eventType
+      .replaceAll("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+}
+
+const failureLabels: Record<string, string> = {
+  CUSTOMER_CANCELLED_CHECKOUT: "Customer cancelled checkout",
+  INSUFFICIENT_FUNDS: "Insufficient funds",
+  TEMPORARY_PAYMENT_FAILURE: "Temporary payment failure",
+  CUSTOMER_CORRECTABLE: "Customer correction required",
+  HIGH_RISK_FRAUD_BLOCK: "High-risk fraud block",
+  PAYMENT_TIMEOUT: "Payment timeout",
+};
+
+function formatFailureCategory(category: string) {
+  return (
+    failureLabels[category] ??
+    category
+      .replaceAll("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+}
+
+const recoveryActionLabels: Record<string, string> = {
+  RETRY_NOW: "Retry now",
+  WAIT_AND_NOTIFY: "Wait and notify",
+  ALTERNATE_PAYMENT: "Alternate payment",
+  RESUME_PAYMENT: "Resume payment",
+  BLOCK_RETRY: "Block retry",
+  REFUND_RECONCILE: "Refund reconciliation",
+  RECONCILE: "Reconcile",
+  TRACK_REFUND: "Track refund",
+  ESCALATE: "Escalate",
+  REVIEW: "Review",
+};
+
+function formatRecoveryAction(action: string) {
+  return (
+    recoveryActionLabels[action] ??
+    action
+      .replaceAll("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+}
+
 export default function Home() {
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [failures, setFailures] = useState<FailureDistribution[]>([]);
-  const [recoveries, setRecoveries] = useState<RecoveryMetrics | null>(null);
-  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [summary, setSummary] =
+    useState<DashboardSummary | null>(null);
+
+  const [failures, setFailures] =
+    useState<FailureDistribution[]>([]);
+
+  const [recoveries, setRecoveries] =
+    useState<RecoveryMetrics | null>(null);
+
+  const [audit, setAudit] =
+    useState<AuditEntry[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -74,39 +148,38 @@ export default function Home() {
     },
     {
       label: "Recovery rate",
-      value: summary ? `${summary.recovery_rate}%` : "—",
+      value: summary
+        ? `${summary.recovery_rate}%`
+        : "—",
       detail: `${summary?.successful_payments ?? "—"} successful payments`,
       accent: "bg-indigo-600",
     },
     {
       label: "Unsafe retries blocked",
-      value: summary ? String(summary.unsafe_retries_blocked) : "—",
+      value: summary
+        ? String(summary.unsafe_retries_blocked)
+        : "—",
       detail: "Policy and execution guards",
       accent: "bg-red-600",
     },
     {
       label: "Pending recoveries",
-      value: summary ? String(summary.pending_recoveries) : "—",
+      value: summary
+        ? String(summary.pending_recoveries)
+        : "—",
       detail: "Awaiting recovery action",
       accent: "bg-amber-500",
     },
   ];
 
-   const maxFailureCount = Math.max(
-  ...failures.map((failure) => failure.count),
-  1
-);
-
-const failureLabels: Record<string, string> = {
-  CUSTOMER_CANCELLED_CHECKOUT: "Customer cancelled checkout",
-  TEMPORARY_PAYMENT_FAILURE: "Temporary payment failure",
-  INSUFFICIENT_FUNDS: "Insufficient funds",
-  CUSTOMER_CORRECTABLE: "Customer correction required",
-  HIGH_RISK_FRAUD_BLOCK: "High-risk fraud block",
-};
+  const maxFailureCount = Math.max(
+    ...failures.map((failure) => failure.count),
+    1,
+  );
 
   return (
     <div className="mx-auto max-w-7xl">
+      {/* Page heading */}
       <PageHeading
         eyebrow="Overview"
         title="Revenue recovery"
@@ -119,23 +192,30 @@ const failureLabels: Record<string, string> = {
         }
       />
 
+      {/* Error */}
       {error && (
         <div className="error-box mb-6 p-4 text-sm">
           {error}
         </div>
       )}
 
+      {/* Loading */}
       {loading && (
         <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
           Loading dashboard metrics…
         </div>
       )}
 
-      {/* KPI CARDS */}
+      {/* KPI metrics */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {metrics.map((metric) => (
-          <article key={metric.label} className="panel p-5">
-            <div className={`mb-5 h-1 w-8 rounded-full ${metric.accent}`} />
+          <article
+            key={metric.label}
+            className="panel p-5"
+          >
+            <div
+              className={`mb-5 h-1 w-8 rounded-full ${metric.accent}`}
+            />
 
             <p className="text-sm font-medium text-[#526071]">
               {metric.label}
@@ -152,8 +232,9 @@ const failureLabels: Record<string, string> = {
         ))}
       </section>
 
-      {/* FAILURE DISTRIBUTION + NEXT ACTION */}
+      {/* Failure distribution + simulator */}
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+        {/* Failure distribution */}
         <article className="panel p-6">
           <div className="flex items-start justify-between gap-5">
             <div>
@@ -162,7 +243,8 @@ const failureLabels: Record<string, string> = {
               </p>
 
               <p className="mt-1 text-sm text-[#7a8797]">
-                Payment failure categories recorded by the classifier.
+                Payment failure categories recorded by the
+                classifier.
               </p>
             </div>
 
@@ -182,10 +264,10 @@ const failureLabels: Record<string, string> = {
               <div key={failure.failure_category}>
                 <div className="mb-2 flex justify-between gap-4 text-sm">
                   <span className="break-words text-[#526071]">
-  {failureLabels[failure.failure_category] ?? failure.failure_category}
-</span>
-                    
-                  
+                    {formatFailureCategory(
+                      failure.failure_category,
+                    )}
+                  </span>
 
                   <span className="font-semibold text-[#172033]">
                     {failure.count}
@@ -196,7 +278,10 @@ const failureLabels: Record<string, string> = {
                   <div
                     className="h-full rounded-full bg-blue-600"
                     style={{
-                      width: `${(failure.count / maxFailureCount) * 100}%`,
+                      width: `${
+                        (failure.count / maxFailureCount) *
+                        100
+                      }%`,
                     }}
                   />
                 </div>
@@ -205,6 +290,7 @@ const failureLabels: Record<string, string> = {
           </div>
         </article>
 
+        {/* Recovery workflow */}
         <article className="panel p-6">
           <p className="text-sm font-semibold text-[#172033]">
             Recovery workflow
@@ -215,8 +301,8 @@ const failureLabels: Record<string, string> = {
           </h2>
 
           <p className="mt-3 text-sm leading-6 text-[#526071]">
-            Create a controlled payment event and send it through the
-            RecoverAI recovery workflow.
+            Create a controlled payment event and send it
+            through the RecoverAI recovery workflow.
           </p>
 
           <Link
@@ -253,8 +339,9 @@ const failureLabels: Record<string, string> = {
         </article>
       </section>
 
-      {/* RECOVERY + AUDIT */}
+      {/* Recovery activity + Audit */}
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        {/* Recovery activity */}
         <article className="panel p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -276,25 +363,27 @@ const failureLabels: Record<string, string> = {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-3">
-            {Object.entries(recoveries?.action_counts ?? {}).map(
-              ([action, count]) => (
-                <div
-                  key={action}
-                  className="rounded-lg border border-[#e2e7ee] bg-[#fafbfc] p-4"
-                >
-                  <p className="break-words text-xs font-medium text-[#7a8797]">
-                    {action}
-                  </p>
+            {Object.entries(
+              recoveries?.action_counts ?? {},
+            ).map(([action, count]) => (
+              <div
+                key={action}
+                className="rounded-lg border border-[#e2e7ee] bg-[#fafbfc] p-4"
+              >
+                <p className="break-words text-xs font-medium text-[#7a8797]">
+                  {formatRecoveryAction(action)}
+                </p>
 
-                  <p className="mt-2 text-2xl font-bold text-[#172033]">
-                    {count}
-                  </p>
-                </div>
-              ),
-            )}
+                <p className="mt-2 text-2xl font-bold text-[#172033]">
+                  {count}
+                </p>
+              </div>
+            ))}
 
             {!loading &&
-              Object.keys(recoveries?.action_counts ?? {}).length === 0 && (
+              Object.keys(
+                recoveries?.action_counts ?? {},
+              ).length === 0 && (
                 <p className="col-span-2 text-sm text-[#7a8797]">
                   No recovery executions recorded yet.
                 </p>
@@ -302,6 +391,7 @@ const failureLabels: Record<string, string> = {
           </div>
         </article>
 
+        {/* Recent audit activity */}
         <article className="panel p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -328,19 +418,23 @@ const failureLabels: Record<string, string> = {
                 key={entry.id}
                 className="border-b border-[#e2e7ee] py-4 last:border-0"
               >
-                <div className="flex justify-between gap-3">
-                  <span className="text-sm font-semibold text-[#526071]">
-                    {entry.event_type}
+                {/* Event name + time */}
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-sm font-bold text-[#172033]">
+                    {formatAuditEvent(entry.event_type)}
                   </span>
 
-                  <span className="shrink-0 text-xs text-[#7a8797]">
+                  <span className="shrink-0 text-xs font-medium text-[#66758a]">
                     {entry.created_at
-                      ? new Date(entry.created_at).toLocaleTimeString()
+                      ? new Date(
+                          entry.created_at,
+                        ).toLocaleTimeString()
                       : "—"}
                   </span>
                 </div>
 
-                <p className="mt-1 break-words text-sm leading-5 text-[#7a8797]">
+                {/* Reason */}
+                <p className="mt-1 text-sm leading-5 text-[#66758a]">
                   {entry.reason}
                 </p>
               </div>
